@@ -1418,14 +1418,28 @@ test = ["#1 @ 1,3: 4x4",
 # if there is already a number in place, up the counter by 1 and place an "X" there
 
 
-
 class Fabric
   attr_accessor :no_overlap
   attr_reader :id, :left, :top, :width, :height
+
+  # keeps track of all instances of Fabric at the key of that fabric's id
+  # ex: { 1 => <Fabricobj id=1 ...> }
   @@all = {}
+
+  # counts the number of overlap squares
   @@counter = 0
 
-  @@fabric = []
+  # charts out the full map. Will become an array of arrays.
+  # The inner arrays represent rows, each element in that inner array is a cell
+  # ex:
+  # [[nil, nil, nil, nil, nil, nil, nil, nil],
+  # [nil, nil, nil, 2, 2, 2, 2, nil],
+  # [nil, nil, nil, 2, 2, 2, 2, nil],
+  # [nil, 1, 1, X, X, 2, 2, nil],
+  # [nil, 1, 1, X, X, 2, 2, nil],
+  # [nil, 1, 1, 1, 1, 3, 3, nil],
+  # [nil, 1, 1, 1, 1, 3, 3, nil]]
+  @@fabric_map = []
 
   def initialize(description)
     @no_overlap = true
@@ -1442,35 +1456,36 @@ class Fabric
   end
 
   def add_to_full_fabric
-    # find || build starting row (top)
-
-    # Fabric.fabric[self.top][self.width]
-
-    # find || build starting column (left)
-    # value is a ".", fill in id (integer)
-    # value is an integer, fill in "X" and increment @@counter
-    # value is an X, do nothing
-
     self.width.times do |w|
       self.height.times do |h|
         x = w + self.left
         y = h + self.top
+        # x and y coordinates of individual square for piece of fabric
         self.add_square(x,y)
       end
     end
   end
 
   def add_square(x, y)
-    Fabric.fabric[y] ||= []
-    case Fabric.fabric[y][x]
+    # make sure the a row exists for this piece of fabric
+    Fabric.fabric_map[y] ||= []
+
+    # check on what exists for the individual cell
+    case Fabric.fabric_map[y][x]
       when nil
-        Fabric.fabric[y][x] = self.id
+        # if nothing is there, add the id of this piece of fabric
+        Fabric.fabric_map[y][x] = self.id
       when "X"
+        # if there is an overlap already, toggle the "no_overlap" boolean
         self.no_overlap = false
       else
-        Fabric.all[Fabric.fabric[y][x]].no_overlap = false
+        # if there is already an id here, toggle the "no_overlap" boolean for that id
+        Fabric.all[Fabric.fabric_map[y][x]].no_overlap = false
+        # toggle the "no_overlap" boolean for this piece of fabric
         self.no_overlap = false
-        Fabric.fabric[y][x] = "X"
+        # mark this square with an "X" to signify overlap
+        Fabric.fabric_map[y][x] = "X"
+        # increment the overlap counter
         Fabric.increment
     end
   end
@@ -1479,8 +1494,8 @@ class Fabric
     @@all
   end
 
-  def self.fabric
-    @@fabric
+  def self.fabric_map
+    @@fabric_map
   end
 
   def self.counter
@@ -1491,20 +1506,8 @@ class Fabric
     @@counter += 1
   end
 
-  def has_overlap?
-    self.width.times do |w|
-      self.height.times do |h|
-        x = w + self.left
-        y = h + self.top
-        if Fabric.fabric[y][x] == "X"
-          return true
-        end
-      end
-    end
-    false
-  end
-
   def self.find_no_overlap
+    # return the id of the first piece that has no overlap
     self.all.keys.find do |id|
       self.all[id].no_overlap
     end
