@@ -1512,11 +1512,11 @@ class Fabric
 
 end
 
+# generate diagram
 arr.each do |desc|
   fabr = Fabric.new(desc)
   fabr.add_to_full_fabric
 end
 
-answer = Fabric.find_no_overlap
-
-puts "#{answer}"
+puts "ANSWER 1, NUM OVERLAP: #{Fabric.counter}"
+puts "ANSWER 2, ID THAT HAS NO OVERLAP: #{Fabric.find_no_overlap}"
