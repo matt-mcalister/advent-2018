@@ -1,4 +1,6 @@
-["[1518-07-14 00:48] wakes up",
+require 'pry'
+
+input_arr = ["[1518-07-14 00:48] wakes up",
 "[1518-09-16 00:04] Guard #3323 begins shift",
 "[1518-10-07 00:34] falls asleep",
 "[1518-08-26 00:47] wakes up",
@@ -1138,3 +1140,156 @@
 "[1518-02-27 00:09] falls asleep",
 "[1518-06-06 00:55] falls asleep",
 "[1518-08-30 00:03] Guard #1307 begins shift"]
+
+test_arr = ["[1518-11-01 00:00] Guard #10 begins shift",
+"[1518-11-01 00:05] falls asleep",
+"[1518-11-01 00:25] wakes up",
+"[1518-11-01 00:30] falls asleep",
+"[1518-11-01 00:55] wakes up",
+"[1518-11-01 23:58] Guard #99 begins shift",
+"[1518-11-02 00:40] falls asleep",
+"[1518-11-02 00:50] wakes up",
+"[1518-11-03 00:05] Guard #10 begins shift",
+"[1518-11-03 00:24] falls asleep",
+"[1518-11-03 00:29] wakes up",
+"[1518-11-04 00:02] Guard #99 begins shift",
+"[1518-11-04 00:36] falls asleep",
+"[1518-11-04 00:46] wakes up",
+"[1518-11-05 00:03] Guard #99 begins shift",
+"[1518-11-05 00:45] falls asleep",
+"[1518-11-05 00:55] wakes up"]
+
+
+class Guard
+  attr_reader :id, :mins
+  @@all = {}
+
+  def initialize(id)
+    @id = id
+    @mins = Array.new(60,0)
+    @@all[id] = self
+    self.start_shift
+  end
+
+  def self.recently_started_shift
+    @@recently_started_shift
+  end
+
+  def self.all
+    @@all
+  end
+
+  def start_shift
+    @@recently_started_shift = self
+  end
+
+  def sleep_logs
+    SleepLog.all.select {|sl| sl.guard == self }
+  end
+
+  def self.most_sleep
+    self.all.keys.max_by {|id| Guard.all[id].minutes_slept }
+  end
+
+  def minutes_slept
+    sleep_logs.reduce(0) do |acc, sl|
+      acc + sl.length
+    end
+  end
+
+  def most_slept_min
+    self.mins.index(self.mins.max)
+  end
+
+  def self.most_sleep_with_most_slept_min
+    id = Guard.most_sleep
+    min = Guard.all[id].most_slept_min
+    {
+      id: id,
+      min: min,
+      multiplied: id*min
+    }
+  end
+
+  def self.most_slept_min
+    id = Guard.all.keys.max_by {|id| Guard.all[id].mins.max}
+    min = Guard.all[id].most_slept_min
+    {
+      id: id,
+      min: min,
+      multiplied: id*min
+    }
+  end
+
+end
+
+class SleepLog
+  attr_reader :start, :guard
+  attr_accessor :end
+  @@all = []
+  @@last_asleep = nil
+  def initialize(start)
+    @start = start
+    @end = nil
+    @guard = Guard.recently_started_shift
+    @@last_asleep = self
+    @@all << self
+  end
+
+  def self.all
+    @@all
+  end
+
+  def self.last_asleep
+    @@last_asleep
+  end
+
+  def wake_up(time)
+    @end = time
+    self.update_guard_mins
+    @@last_asleep = nil
+  end
+
+  def length
+    if self.end
+      self.end - self.start
+    else
+      0
+    end
+  end
+
+  def update_guard_mins
+    (self.start...self.end).each do |n|
+      self.guard.mins[n] += 1
+    end
+  end
+
+
+end
+
+def run(arr)
+  sorted = arr.sort_by do |log|
+    datetime = log.split("[").last.split("]").first
+    datetime.gsub(/\s|\-|\:/, "").to_i
+  end
+  sorted.each do |log|
+    if log.include?("begins shift")
+      id = log.split("Guard #").last.split(" begins shift").first.to_i
+      if Guard.all[id]
+        Guard.all[id].start_shift
+      else
+        Guard.new(id)
+      end
+    elsif log.include?("falls asleep")
+      start_time = log.split("00:").last.split("]").first.to_i
+      SleepLog.new(start_time)
+    elsif log.include?("wakes up")
+      end_time = log.split("00:").last.split("]").first.to_i
+      SleepLog.last_asleep && SleepLog.last_asleep.wake_up(end_time)
+    end
+  end
+  puts "ANSWER 1: #{Guard.most_sleep_with_most_slept_min}"
+  puts "ANSWER 2: #{Guard.most_slept_min}"
+end
+
+run(input_arr)
