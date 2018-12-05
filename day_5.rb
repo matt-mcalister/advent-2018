@@ -26,7 +26,9 @@ class Polymer
 
   def remove_reaction
     (self.last_removed...self.chain.length).each do |i|
-      if i != self.chain.length - 1 && (self.chain[i] == self.chain[i+1].upcase || self.chain[i] == self.chain[i+1].downcase) && self.chain[i] != self.chain[i+1]
+      if (i != self.chain.length - 1 &&
+          (self.chain[i] == self.chain[i+1].upcase || self.chain[i] == self.chain[i+1].downcase) &&
+            self.chain[i] != self.chain[i+1])
         self.chain[i..i+1] = ""
         self.last_removed = i > 0 ? i - 1 : 0
         return true
