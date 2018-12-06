@@ -1,3 +1,4 @@
+require 'pry'
 # Your goal is to find the size of the largest area that isn't infinite.
 # For example, consider the following list of coordinates:
 #
@@ -39,5 +40,99 @@
 # In this example, the areas of coordinates A, B, C, and F are infinite -
 # while not shown here, their areas extend forever outside the visible grid.
 # However, the areas of coordinates D and E are finite: D is closest to 9
-# locations, and E is closest to 17 (both including the coordinate's location itself). 
+# locations, and E is closest to 17 (both including the coordinate's location itself).
 # Therefore, in this example, the size of the largest area is 17.
+
+class Map
+  attr_accessor :left_most_point, :right_most_point, :top_most_point, :bottom_most_point
+
+  def generate(coordinates)
+    coordinates.each do |c|
+      coord = Coordinate.new(c.first, c.last, self)
+      self.is_boundary?(coord)
+    end
+  end
+
+  def finite_points
+    self.coordinates.select {|c| c.finite_point?}
+  end
+
+  def is_boundary?(coord)
+    if self.left_most_point.nil? || self.left_most_point.x >= coord.x
+      self.left_most_point = coord
+    end
+
+    if self.right_most_point.nil? || self.right_most_point.x <= coord.x
+      self.right_most_point = coord
+    end
+
+    if self.top_most_point.nil? || self.top_most_point.y >= coord.y
+      self.top_most_point = coord
+    end
+
+    if self.bottom_most_point.nil? || self.bottom_most_point.y <= coord.y
+      self.bottom_most_point = coord
+    end
+  end
+
+  def coordinates
+    Coordinate.all.select {|c| c.map == self}
+  end
+
+end
+
+class Coordinate
+
+  @@all = []
+  attr_reader :x, :y, :map
+
+  def initialize(x, y, map)
+    @x = x
+    @y = y
+    @map = map
+    @@all << self
+  end
+
+  def self.all
+    @@all
+  end
+
+  def on_top_edge
+    self.y == self.map.top_most_point.y
+  end
+
+  def on_bottom_edge
+    self.y == self.map.bottom_most_point.y
+  end
+
+  def on_left_edge
+    self.x == self.map.left_most_point.x
+  end
+
+  def on_right_edge
+    self.x == self.map.right_most_point.x
+  end
+
+  def finite_point?
+    !self.on_top_edge &&
+    !self.on_bottom_edge &&
+    !self.on_left_edge &&
+    !self.on_right_edge
+  end
+
+end
+
+test = [[1, 1],
+[1, 6],
+[8, 3],
+[3, 4],
+[5, 5],
+[8, 9]]
+
+def run(arr)
+  m = Map.new
+  m.generate(arr)
+  binding.pry
+end
+
+run(test)
