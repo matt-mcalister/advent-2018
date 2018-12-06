@@ -75,6 +75,10 @@ class Map
     end
   end
 
+  def coordinates_between_points(coord1, coord2)
+    # returns any coordinates inside of maximal between two points
+  end
+
   def coordinates
     Coordinate.all.select {|c| c.map == self}
   end
@@ -84,13 +88,34 @@ end
 class Coordinate
 
   @@all = []
+
   attr_reader :x, :y, :map
+  attr_accessor :closest_above, :closest_below, :closest_right, :closest_left
 
   def initialize(x, y, map)
     @x = x
     @y = y
     @map = map
     @@all << self
+  end
+
+  def find_closest_points
+    # the area between two points is always a rectangle (even if it's a width/height of 1)
+    # see if any points reside in that area- if they do, recalculate with the closer point until you've found the closest point.
+
+
+  end
+
+  def vertical_distance_from(coord)
+    # if it's positive, the coord is below self
+    # if it's negative, the coord is above self
+    coord.y - self.y
+  end
+
+  def horizontal_distance_from(coord)
+    # if it's positive, the coord is to the right of self
+    # if it's negative, the coord is to the left of self
+    coord.x - self.x
   end
 
   def self.all
