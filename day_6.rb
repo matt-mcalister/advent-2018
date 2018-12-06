@@ -54,7 +54,7 @@ class Map
   end
 
   def finite_points
-    self.coordinates.select {|c| c.finite_point?}
+    Coordinate.all.select {|c| c.map == self && c.finite_point?}
   end
 
   def is_boundary?(coord)
