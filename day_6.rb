@@ -45,7 +45,7 @@ require 'pry'
 
 class Map
   attr_accessor :left_boundary, :right_boundary, :top_boundary, :bottom_boundary,
-    :top_left_coord, :top_right_coord, :bottom_left_coord, :bottom_right_coord
+    :top_left_coord, :top_right_coord, :bottom_left_coord, :bottom_right_coord, :grid
 
   def initialize
     @left_boundary = 0
@@ -54,13 +54,29 @@ class Map
     @bottom_boundary = 0
   end
 
-
   def generate(coordinates)
     coordinates.each do |c|
       coord = Coordinate.new(c[0], c[1], self, c[2])
       self.update_boundary(coord)
     end
     self.assign_corners
+    # width = self.right_boundary - self.left_boundary
+    # height = self.bottom_boundary - self.top_boundary
+    self.grid = []
+    (self.top_boundary..self.bottom_boundary).each do |y|
+      (self.left_boundary..self.right_boundary).each do |x|
+        cp = self.closest_point(x,y)
+        if !cp.nil?
+          cp.closest_point_count += 1
+          if x == self.left_boundary || x == self.right_boundary || y == self.top_boundary || y == self.bottom_boundary
+            cp.area_has_border_point = true
+          end
+        end
+        # puts "#{x},#{y}: #{cp.nil? ? 'nil' : cp.x == x && cp.y == y ? cp.name.upcase : cp.name.downcase}"
+        self.grid[y] ||= []
+        self.grid[y][x] = cp.nil? ? 'nil' : cp.x == x && cp.y == y ? cp.name.upcase : cp.name.downcase
+      end
+    end
   end
 
   def finite_points
@@ -68,7 +84,7 @@ class Map
   end
 
   def update_boundary(coord)
-    if self.left_boundary >= coord.x
+    if self.left_boundary == 0 || self.left_boundary >= coord.x
       self.left_boundary = coord.x
     end
 
@@ -76,7 +92,7 @@ class Map
       self.right_boundary = coord.x
     end
 
-    if self.top_boundary >= coord.y
+    if self.top_boundary == 0 || self.top_boundary >= coord.y
       self.top_boundary = coord.y
     end
 
@@ -86,45 +102,59 @@ class Map
   end
 
   def assign_corners
-    self.top_left_coord = self.closest_point(self.left_boundary, self.top_boundary)
-    self.top_right_coord = self.closest_point(self.right_boundary, self.top_boundary)
-    self.bottom_left_coord = self.closest_point(self.left_boundary, self.bottom_boundary)
-    self.bottom_right_coord = self.closest_point(self.right_boundary, self.bottom_boundary)
+    self.top_left_coord = self.closest_point(self.left_boundary, self.top_boundary, true)
+    self.top_right_coord = self.closest_point(self.right_boundary, self.top_boundary, true)
+    self.bottom_left_coord = self.closest_point(self.left_boundary, self.bottom_boundary, true)
+    self.bottom_right_coord = self.closest_point(self.right_boundary, self.bottom_boundary, true)
   end
 
-  def closest_point(x, y)
-    self.coordinates.min_by do |c|
-      mid_width = ((self.right_boundary - self.left_boundary) / 2) + self.left_boundary
-      mid_height = ((self.bottom_boundary - self.top_boundary) / 2) + self.top_boundary
-      maximum_area = self.right_boundary * self.bottom_boundary
-      case [x,y]
-      when [self.left_boundary, self.top_boundary]
-        if c.x <= mid_width && c.y <= mid_height
-          c.area_between(x,y)
-        else
-          maximum_area
-        end
-      when [self.right_boundary, self.top_boundary]
-        if c.x >= mid_width && c.y <= mid_height
-          c.area_between(x,y)
-        else
-          maximum_area
-        end
-      when [self.left_boundary, self.bottom_boundary]
-        if c.x <= mid_width && c.y >= mid_height
-          c.area_between(x,y)
-        else
-          maximum_area
-        end
-      when [self.right_boundary, self.bottom_boundary]
-        if c.x >= mid_width && c.y >= mid_height
-          c.area_between(x,y)
-        else
-          maximum_area
+  def closest_point(x, y, is_corner = false)
+    sorted = self.coordinates.sort_by do |c|
+      if is_corner
+        mid_width = ((self.right_boundary - self.left_boundary) / 2) + self.left_boundary
+        mid_height = ((self.bottom_boundary - self.top_boundary) / 2) + self.top_boundary
+        maximum_area = self.right_boundary * self.bottom_boundary
+        case [x,y]
+        when [self.left_boundary, self.top_boundary]
+          if c.x <= mid_width && c.y <= mid_height
+            c.area_between(x,y)
+          else
+            maximum_area
+          end
+        when [self.right_boundary, self.top_boundary]
+          if c.x >= mid_width && c.y <= mid_height
+            c.area_between(x,y)
+          else
+            maximum_area
+          end
+        when [self.left_boundary, self.bottom_boundary]
+          if c.x <= mid_width && c.y >= mid_height
+            c.area_between(x,y)
+          else
+            maximum_area
+          end
+        when [self.right_boundary, self.bottom_boundary]
+          if c.x >= mid_width && c.y >= mid_height
+            c.area_between(x,y)
+          else
+            maximum_area
+          end
         end
       else
+        # puts "aint a corner"
         c.area_between(x,y)
       end
+    end
+    # puts "#{sorted.map {|c| { name: c.name, value: c.area_between(x,y)}}}"
+    # puts "FIRST MIN: #{sorted[0].area_between(x,y)}"
+    # puts "SECOND MIN: #{sorted[1].area_between(x,y)}"
+    # puts "X: #{x}"
+    # puts "Y: #{y}"
+    # puts "**********************************"
+    if sorted[0].area_between(x,y) == sorted[1].area_between(x,y)
+      return nil
+    else
+      return sorted[0]
     end
   end
 
@@ -144,31 +174,17 @@ class Coordinate
   @@all = []
 
   attr_reader :x, :y, :map, :name
-  # attr_accessor :closest_above, :closest_below, :closest_right, :closest_left
+  attr_accessor :closest_point_count, :area_has_border_point
 
   def initialize(x, y, map, name = nil)
     @x = x
     @y = y
     @map = map
     @name = name
+    @closest_point_count = 0
+    @area_has_border_point = false
     @@all << self
   end
-
-  # def find_closest_points
-  #   # the area between two points is always a rectangle (even if it's a width/height of 1)
-  #   # see if any points reside in that area- if they do, recalculate with the closer point until you've found the closest point.
-  #   find_closest_above
-  #   find_closest_below
-  #   find_closest_left
-  #   find_closest_right
-  # end
-
-  # def find_closest_above
-  #   possible_coords = self.coordinates_between_points(self, self.map.top_boundary)
-  #   while possible_coords.length > 1
-  #     binding.pry
-  #   end
-  # end
 
   def vertical_distance_from(coord)
     # if it's positive, the coord is below self
@@ -185,7 +201,7 @@ class Coordinate
   def area_between(x,y)
     width = (x - self.x).abs
     height = (y - self.y).abs
-    width * height
+    width + height
   end
 
   def self.all
@@ -209,6 +225,7 @@ class Coordinate
   end
 
   def finite_point?
+    !self.area_has_border_point &&
     !self.on_top_edge &&
     !self.on_bottom_edge &&
     !self.on_left_edge &&
@@ -224,13 +241,74 @@ test = [[1, 1, "A"],
 [5, 5, "E"],
 [8, 9, "F"]]
 
+input = [
+  [195, 221, "AA"],
+[132, 132, "AB"],
+[333, 192, "AC"],
+[75, 354, "AD"],
+[162, 227, "AE"],
+[150, 108, "AF"],
+[46, 40, "AG"],
+[209, 92, "AH"],
+[153, 341, "AI"],
+[83, 128, "AJ"],
+[256, 295, "AK"],
+[311, 114, "AL"],
+[310, 237, "AM"],
+[99, 240, "AN"],
+[180, 337, "AO"],
+[332, 176, "AP"],
+[212, 183, "AQ"],
+[84, 61, "AR"],
+[275, 341, "AS"],
+[155, 89, "AT"],
+[169, 208, "AU"],
+[105, 78, "AV"],
+[151, 318, "AW"],
+[92, 74, "AX"],
+[146, 303, "AY"],
+[184, 224, "AZ"],
+[285, 348, "BA"],
+[138, 163, "BB"],
+[216, 61, "BC"],
+[277, 270, "BD"],
+[130, 155, "BE"],
+[297, 102, "BF"],
+[197, 217, "BG"],
+[72, 276, "BH"],
+[299, 89, "BI"],
+[357, 234, "BJ"],
+[136, 342, "BK"],
+[346, 221, "BL"],
+[110, 188, "BM"],
+[82, 183, "BN"],
+[271, 210, "BO"],
+[46, 198, "BP"],
+[240, 286, "BQ"],
+[128, 95, "BR"],
+[111, 309, "BS"],
+[108, 54, "BT"],
+[258, 305, "BU"],
+[241, 157, "BV"],
+[117, 162, "BW"],
+[96, 301, "BX"]
+]
+
 def run(arr)
   m = Map.new
   m.generate(arr)
-  puts m.top_left_coord.name
-  puts m.top_right_coord.name
-  puts m.bottom_left_coord.name
-  puts m.bottom_right_coord.name
+  coord = m.finite_points.max_by {|c| c.closest_point_count}
+  finite = m.finite_points.map {|c| {x: c.x, y: c.y, count: c.closest_point_count}}
+  # grid_with_names = m.grid.map do |row|
+  #   row.map do |c|
+  #     c ? c.name : c
+  #   end
+  # end
+  # puts "*********"
+  m.grid.each do |row|
+    puts "#{row}"
+  end
+  binding.pry
 end
 
-run(test)
+run(input)
