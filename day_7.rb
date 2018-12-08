@@ -2,16 +2,27 @@ require 'pry'
 
 class Order
 
+  def beginning
+    beginning_letter = Step.all.keys.find {|l| Step.all[l].is_beginning }
+    Step.all[beginning_letter]
+  end
+
+  def to_string
+    # 
+  end
+
 end
 
 class Step
   attr_reader :letter, :next, :order
+  attr_accessor :is_beginning
 
   @@all = {}
 
   def initialize(letter, instruction)
     @letter = letter
     @next = []
+    @is_beginning = true
     @@all[letter] = self
   end
 
@@ -40,13 +51,15 @@ def run(arr)
   order = Order.new
   arr.each do |instruction|
     split_instr = instruction.split(" must be finished before step ")
-
-    letter = split_order.first.split("Step ").last
-    next = split_order.last.split(" can begin.").first
-    step_node = Step.all[letter] || Step.new(letter, order)
-    next_node = Step.all[next] || Step.new(next_node, order)
+    first_letter = split_instr.first.split("Step ")[-1]
+    next_letter = split_instr.last.split(" can begin.")[0]
+    step_node = Step.all[first_letter] || Step.new(first_letter, order)
+    next_node = Step.all[next_letter] || Step.new(next_letter, order)
+    next_node.is_beginning = false
     step_node.add_next(next_node)
   end
+
+  binding.pry
 end
 
 run(test)
