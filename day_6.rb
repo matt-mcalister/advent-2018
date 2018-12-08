@@ -45,7 +45,7 @@ require 'pry'
 
 class Map
   attr_accessor :left_boundary, :right_boundary, :top_boundary, :bottom_boundary,
-    :grid, :max_dist
+    :grid, :max_dist, :num_safe_zone
 
   def initialize(max_dist)
     @left_boundary = 0
@@ -53,6 +53,7 @@ class Map
     @top_boundary = 0
     @bottom_boundary = 0
     @max_dist = max_dist
+    @num_safe_zone = 0
   end
 
   def generate(coordinates)
@@ -69,7 +70,14 @@ class Map
             cp.area_has_border_point = true
           end
         end
+        self.in_safe_zone?(x,y)
       end
+    end
+  end
+
+  def in_safe_zone?(x,y)
+    if self.coordinates.reduce(0) {|acc,c| acc + c.area_between(x,y)} < self.max_dist
+      self.num_safe_zone += 1
     end
   end
 
@@ -212,6 +220,7 @@ def run(arr, max_dist)
   coord = m.finite_points.max_by {|c| c.closest_point_count}
 
   puts "ANSWER 1: #{coord.closest_point_count}"
+  puts "ANSWER 2: #{m.num_safe_zone}"
 end
 
-run(test, 32)
+run(input, 10000)
