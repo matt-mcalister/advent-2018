@@ -13,12 +13,13 @@ class Order
 end
 
 class Step
-  attr_reader :letter, :next, :order
+  attr_reader :parents, :letter, :next, :order
   attr_accessor :is_beginning
 
   @@all = {}
 
   def initialize(letter, instruction)
+    @parents = []
     @letter = letter
     @next = []
     @is_beginning = true
@@ -38,6 +39,11 @@ class Step
     self.next.reduce(self.letter) do |acc, step_obj|
       conflict_nodes = step_obj.next.select {|s| acc.include?(s.letter)}
       if conflict_nodes.length > 0
+        puts "ACC: #{acc}"
+        puts "SELF: #{self.letter}"
+        puts "STEP: #{step_obj.letter}"
+        puts "CONFLICT NODES: #{conflict_nodes.map{|n| n.letter}}"
+        puts "************"
         self.resolve_merge(step_obj, conflict_nodes, acc)
       else
         acc + step_obj.to_string
@@ -52,12 +58,33 @@ class Step
       # acc_string includes at least one step that orccurs after step_obj
 
     # find letter that should be replaced with step_obj
-    # if conflict_nodes.length > 1
-    #   binding.pry
-    # end
     conflict_nodes.reduce(acc_str) {|acc, conf| acc.gsub(conf.letter, step_obj.to_string)}
     # this method should return the resolved merge of these two step objs in the acc_str
   end
+
+  def compare_branches(conflicting_node)
+    # self and conflicting_node are siblings
+    # look at children of self and conflicting_node
+    # find where they have a child node in common
+    # place in alphabetical priority, with common node occuring last
+    # For example:
+    #                C
+    #               / \
+    #              D   A
+    #               \ /
+    #                E
+    # should resolve to: "CADE", with D and A being "self" and "conflicting_node"
+    # For example:
+    #                C
+    #               / \
+    #              D   A
+    #             / \   \
+    #            F   B   Q
+    #             \   \ /
+    #              \__E
+    # should resolve to: "CAQDBFE", with D and A being "self" and "conflicting_node"
+  end
+
 end
 test = [
   "Step C must be finished before step A can begin.",
@@ -184,11 +211,11 @@ def run(arr)
 
     step_node = Step.all[first_letter] || Step.new(first_letter, order)
     next_node = Step.all[next_letter] || Step.new(next_letter, order)
+    next_node.parents << step_node
     next_node.is_beginning = false
     step_node.add_next(next_node)
   end
   o_string = order.to_string
-  puts order.beginning_letters
   puts Step.all.keys.count
   puts o_string.length
   puts o_string
