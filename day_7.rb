@@ -2,24 +2,50 @@ require 'pry'
 
 class Order
 
+  attr_accessor :acc
+  attr_writer :on_deck
+
+  def on_deck
+    @on_deck.sort
+  end
+
+  def next_letter
+    self.on_deck.find {|l| !Step.all[l].added && Step.all[l].prerequisites_met?}
+  end
+
   def beginning_letters
     Step.all.keys.select {|l| Step.all[l].is_beginning }.sort
   end
 
   def to_string
-    self.beginning_letters.reduce("") {|acc, l| acc + Step.all[l].to_string}
+    self.acc = self.beginning_letters.first
+    self.on_deck = self.beginning_letters[1..-1] + Step.all[self.beginning_letters.first].next.map {|s| s.letter}
+    until self.acc.length == Step.all.keys.length
+      self.add_next_letter
+    end
+  end
+
+  def add_next_letter
+    new_letter = self.next_letter
+    self.acc += new_letter
+    Step.all[new_letter].added = true
+    index = self.on_deck.index(new_letter)
+    self.on_deck.delete_at(index)
+    self.on_deck += Step.all[new_letter].next.map {|s| s.letter}
   end
 
 end
 
 class Step
   attr_reader :parents, :letter, :next, :order
-  attr_accessor :is_beginning
+  attr_accessor :is_beginning, :added
 
   @@all = {}
 
-  def initialize(letter, instruction)
+  def initialize(letter, order)
+    @added = false
     @parents = []
+    @order = order
     @letter = letter
     @next = []
     @is_beginning = true
@@ -35,57 +61,12 @@ class Step
     @@all
   end
 
-  def to_string
-    self.next.reduce(self.letter) do |acc, step_obj|
-      conflict_nodes = step_obj.next.select {|s| acc.include?(s.letter)}
-      if conflict_nodes.length > 0
-        puts "ACC: #{acc}"
-        puts "SELF: #{self.letter}"
-        puts "STEP: #{step_obj.letter}"
-        puts "CONFLICT NODES: #{conflict_nodes.map{|n| n.letter}}"
-        puts "************"
-        self.resolve_merge(step_obj, conflict_nodes, acc)
-      else
-        acc + step_obj.to_string
-      end
-    end
-  end
-
-  def resolve_merge(step_obj, conflict_nodes, acc_str = "")
-    # step_obj is a 'next' node for self. It conflicts with another one of self's next nodes
-      # step_obj will always have lower status alphabetically than self's other next nodes
-    # acc_string is the accumulated string so far in the to_string method
-      # acc_string includes at least one step that orccurs after step_obj
-
-    # find letter that should be replaced with step_obj
-    conflict_nodes.reduce(acc_str) {|acc, conf| acc.gsub(conf.letter, step_obj.to_string)}
-    # this method should return the resolved merge of these two step objs in the acc_str
-  end
-
-  def compare_branches(conflicting_node)
-    # self and conflicting_node are siblings
-    # look at children of self and conflicting_node
-    # find where they have a child node in common
-    # place in alphabetical priority, with common node occuring last
-    # For example:
-    #                C
-    #               / \
-    #              D   A
-    #               \ /
-    #                E
-    # should resolve to: "CADE", with D and A being "self" and "conflicting_node"
-    # For example:
-    #                C
-    #               / \
-    #              D   A
-    #             / \   \
-    #            F   B   Q
-    #             \   \ /
-    #              \__E
-    # should resolve to: "CAQDBFE", with D and A being "self" and "conflicting_node"
+  def prerequisites_met?
+    self.parents.all? {|s| self.order.acc.include?(s.letter)}
   end
 
 end
+
 test = [
   "Step C must be finished before step A can begin.",
 "Step C must be finished before step F can begin.",
@@ -215,10 +196,8 @@ def run(arr)
     next_node.is_beginning = false
     step_node.add_next(next_node)
   end
-  o_string = order.to_string
-  puts Step.all.keys.count
-  puts o_string.length
-  puts o_string
+  order.to_string
+  puts "ANSWER TO NUMBER 1: #{order.acc}"
 end
 
 run(input)
