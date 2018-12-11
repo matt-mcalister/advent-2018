@@ -2,15 +2,21 @@ require 'pry'
 
 class Order
 
-  attr_accessor :acc
+  attr_accessor :acc, :seconds, :workers
   attr_writer :on_deck
 
+  def initialize(num_workers)
+    @workers = Array.new(num_workers)
+    @seconds = -1
+    @acc = ""
+  end
+
   def on_deck
-    @on_deck.sort
+    @on_deck.sort.uniq
   end
 
   def next_letter
-    self.on_deck.find {|l| !Step.all[l].added && Step.all[l].prerequisites_met?}
+    self.on_deck.find {|l| !Step.all[l].start_time && !Step.all[l].added && Step.all[l].prerequisites_met?}
   end
 
   def beginning_letters
@@ -18,27 +24,78 @@ class Order
   end
 
   def to_string
-    self.acc = self.beginning_letters.first
-    self.on_deck = self.beginning_letters[1..-1] + Step.all[self.beginning_letters.first].next.map {|s| s.letter}
+    self.on_deck = self.beginning_letters
     until self.acc.length == Step.all.keys.length
-      self.add_next_letter
+      self.check_letter_completion
     end
   end
 
-  def add_next_letter
-    new_letter = self.next_letter
-    self.acc += new_letter
-    Step.all[new_letter].added = true
-    index = self.on_deck.index(new_letter)
-    self.on_deck.delete_at(index)
-    self.on_deck += Step.all[new_letter].next.map {|s| s.letter}
+  def must_debug?
+    self.workers.any? {|l| !l.nil? && (self.acc.include?(l) || self.on_deck.include?(l))} || (!!self.next_letter && self.workers.any?{|w| w.nil?})
+  end
+
+  def check_letter_completion
+    self.seconds += 1
+    self.workers = self.workers.map do |l|
+      if l.nil? || Step.all[l].complete?
+
+        self.add_next_letter(l)
+        letter = self.next_letter
+        if !!Step.all[letter]
+          Step.all[letter].start_time = self.seconds
+          self.on_deck -= [letter]
+        end
+        letter
+      else
+        l
+      end
+    end
+    self.on_deck -= self.workers
+    puts "TIME: #{self.seconds}, IN PROGRESS: #{self.workers.map {|l| l.nil? ? "." : l}}, DONE: #{self.acc}"
+  end
+
+  def add_next_letter(letter)
+    if !letter.nil?
+      self.acc += letter
+      Step.all[letter].added = true
+      self.on_deck += Step.all[letter].next.map {|s| s.letter}
+      self.on_deck -= self.workers
+    end
   end
 
 end
 
 class Step
   attr_reader :parents, :letter, :next, :order
-  attr_accessor :is_beginning, :added
+  attr_accessor :is_beginning, :added, :start_time
+  @@time = {
+    "A" => 1,
+    "B" => 2,
+    "C" => 3,
+    "D" => 4,
+    "E" => 5,
+    "F" => 6,
+    "G" => 7,
+    "H" => 8,
+    "I" => 9,
+    "J" => 10,
+    "K" => 11,
+    "L" => 12,
+    "M" => 13,
+    "N" => 14,
+    "O" => 15,
+    "P" => 16,
+    "Q" => 17,
+    "R" => 18,
+    "S" => 19,
+    "T" => 20,
+    "U" => 21,
+    "V" => 22,
+    "W" => 23,
+    "X" => 24,
+    "Y" => 25,
+    "Z" => 26
+  }
 
   @@all = {}
 
@@ -52,6 +109,10 @@ class Step
     @@all[letter] = self
   end
 
+  def complete?
+    self.order.seconds - self.start_time >= Step.time[self.letter] + 60
+  end
+
   def add_next(next_node)
     @next << next_node
     @next = self.next.sort_by {|s| s.letter}
@@ -61,8 +122,12 @@ class Step
     @@all
   end
 
+  def self.time
+    @@time
+  end
+
   def prerequisites_met?
-    self.parents.all? {|s| self.order.acc.include?(s.letter)}
+    self.parents.all? {|s| self.order.acc.include?(s.letter) || self.order.workers.any? {|l| l == s.letter && Step.all[l].complete?}}
   end
 
 end
@@ -183,8 +248,8 @@ input = [
 
 
 
-def run(arr)
-  order = Order.new
+def run(arr, num_workers)
+  order = Order.new(num_workers)
   arr.each do |instruction|
     split_instr = instruction.split(" must be finished before step ")
     first_letter = split_instr.first.split("Step ")[-1]
@@ -197,7 +262,9 @@ def run(arr)
     step_node.add_next(next_node)
   end
   order.to_string
-  puts "ANSWER TO NUMBER 1: #{order.acc}"
+  # binding.pry
+  puts "ANSWER TO NUMBER 2 (accumulated string): #{order.acc}"
+  puts "ANSWER TO NUMBER 2: #{order.seconds}"
 end
 
-run(input)
+run(input, 6)
