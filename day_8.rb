@@ -19,10 +19,18 @@ class Node
     @children = []
     @parent = parent
     @@all << self
+    if self.invalid?
+      binding.pry
+      true
+    end
     self.assign_children
-    self.remove_range_from_parent
     self.limit_range
+    self.remove_range_from_parent
     puts "NODE #{counter} RANGE: #{self.range}"
+  end
+
+  def invalid?
+    self.range.length < 2 + self.num_metadata
   end
 
   def self.all
@@ -37,12 +45,20 @@ class Node
     self.all.map {|node| node.metadata}.flatten
   end
 
+  def self.sum_metadata
+    self.all.reduce(0) {|acc, node| acc + node.sum_metadata}
+  end
+
+  def sum_metadata
+    self.metadata.reduce(0) {|acc, n| acc + n}
+  end
+
   def metadata
     self.range[-1*self.num_metadata..-1]
   end
 
   def minimum_length
-    self.num_children + self.num_metadata
+    2 + self.num_metadata
   end
 
   def assign_children
@@ -52,42 +68,19 @@ class Node
   end
 
   def find_child
-    # search range[2...-1*range[1]] for 2 indexes between headers and metadata
-    # the first number is >= 0
-    # the second number is >= 1
     idx = (2...self.range.length-self.num_metadata).find do |i|
-      !self.range[i].nil? && self.range[i] >= 0 && self.range[i+1] > 0
+      !self.range[i].nil? # && self.range[i] >= 0 && self.range[i+1] > 0
     end
 
-    # while self.range[i+1] == 0
-    #   i = (i...self.range.length-self.num_metadata).find {|n| n >= 0 }
-    #   puts "i: #{i}"
-    #   if i.nil?
-    #     puts "yo"
-    #     binding.pry
-    #     puts "ay"
-    #     true
-    #   end
-    # end
-    # the length of the range is >= 2 + num_metadata + num_children * 3
-    if idx.nil?
-      binding.pry
-    end
     child_range = self.range[idx...-1*self.num_metadata]
     parent = self
     node = Node.new(child_range, parent)
     self.children << node
   end
 
-  # def update_range
-  #   # determine the correct range for this node (beginning with first header, ending with metadata)
-  #   # go to parent and map over range to be nil
-  #   self.range = self.range[0..]
-  # end
-
   def length_of_range
     # length of subset range should be headers + metadata + length of children
-    2 + self.range[1] + self.children.reduce(0) {|acc, child_node| acc + child_node.length_of_range}
+    self.minimum_length + self.children.reduce(0) {|acc, child_node| acc + child_node.length_of_range}
   end
 
   def has_range?(subset_range)
@@ -97,15 +90,15 @@ class Node
   end
 
   def limit_range
-    if self.range.length != self.length_of_range
-      self.range = self.range[0...self.length_of_range]
+    length = self.length_of_range
+    if self.range.length != length
+      self.range = self.range[0...length]
     end
   end
 
-  def remove_range_from_parent(subset_range = self.range[0...self.length_of_range])
-    if self.has_range?(subset_range) && !self.parent.nil?
+  def remove_range_from_parent(subset_range = self.range)
+    if !self.parent.nil? && self.parent.has_range?(subset_range)
 
-      self.parent.remove_range_from_parent(subset_range)
       # subset_range = self.range[0...self.length_of_range]
       # remove a subset from an array
       # ex:
@@ -121,21 +114,12 @@ class Node
         binding.pry
         true
       end
-      # i = self.range[2...-1*self.num_metadata].index {|n| n == subset_range[0]}
-      # while self.range[i..i+subset_range.length - 1] != subset_range
-      #   i = self.range[i...-1*self.num_metadata].index {|n| n == subset_range[0]}
-      # end
+
       (idx...idx+subset_range.length).each do |i|
         self.parent.range[i] = nil
       end
-      # self.parent.range = self.parent.range.map.with_index do |n,i|
-      #   if (idx...idx+subset_range.length).include?(i)
-      #     nil
-      #   else
-      #     n
-      #   end
-      # end
-      # self.parent.range = self.parent.range.slice(0,idx) + self.parent.range.slice(idx+subset_range.length, self.parent.range.length)
+
+      self.parent.remove_range_from_parent(subset_range)
     end
   end
 
@@ -149,7 +133,7 @@ test = [2,3,0,3,10,11,12,1,1,0,1,99,2,1,1,2]
 #                      D-----
 def run(arr)
   Node.new(arr)
-  puts Node.metadata.reduce(:+)
+  puts Node.sum_metadata
 end
 
 
@@ -16606,4 +16590,4 @@ input = [
     6,
     9,
 ]
-run(input)
+run(test)
